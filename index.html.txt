@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lodge Financial Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Light slate background */
+        }
+        .card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        }
+        .header-bg {
+            background-color: #0f172a; /* Slate 900 primary color */
+        }
+        .btn-primary {
+            transition: background-color 0.15s ease-in-out, transform 0.1s ease-out;
+        }
+        .btn-primary:hover { background-color: #1e3a8a; }
+        .btn-primary:active { transform: scale(0.98); }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(3px);
+            z-index: 50;
+        }
+        .nav-item {
+            transition: background-color 0.2s;
+        }
+        .active-nav {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="header-bg text-white shadow-lg">
+            <div class="p-4 flex justify-between items-center">
+                <h1 class="text-xl md:text-2xl font-bold">Lodge Financial Admin</h1>
+                <p id="auth-status" class="text-xs md:text-sm opacity-75">Status: Connecting...</p>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex justify-around bg-gray-100 text-gray-700">
+                <button data-view="dashboard" class="nav-item flex-1 py-3 text-sm md:text-base active-nav" onclick="changeView('dashboard')">Dashboard</button>
+                <button data-view="roster" class="nav-item flex-1 py-3 text-sm md:text-base" onclick="changeView('roster')">Dues Roster</button>
+                <button data-view="expenses" class="nav-item flex-1 py-3 text-sm md:text-base" onclick="changeView('expenses')">Expenses</button>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow p-4 md:p-6">
+            <div id="loading-indicator" class="text-center p-8 text-gray-600">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <p class="mt-2">Authenticating and loading data...</p>
+            </div>
+
+            <div id="views" class="hidden">
+                <!-- --------------------------------------- -->
+                <!-- VIEW 1: DASHBOARD (BALANCE) -->
+                <!-- --------------------------------------- -->
+                <div id="dashboard-view" class="view space-y-8">
+                    <h2 class="text-3xl font-extrabold text-gray-800">Financial Summary</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Income Card -->
+                        <div class="card p-6 rounded-xl bg-green-50 border-l-4 border-green-500">
+                            <p class="text-sm font-medium text-green-700">Total Dues Income (YTD)</p>
+                            <p id="total-income" class="text-4xl font-extrabold text-green-600 mt-1">$0.00</p>
+                            <p class="text-xs text-green-500 mt-2">Sum of all members' YTD payments.</p>
+                        </div>
+                        
+                        <!-- Expenses Card -->
+                        <div class="card p-6 rounded-xl bg-red-50 border-l-4 border-red-500">
+                            <p class="text-sm font-medium text-red-700">Total Expenses Logged</p>
+                            <p id="total-expenses" class="text-4xl font-extrabold text-red-600 mt-1">$0.00</p>
+                            <p class="text-xs text-red-500 mt-2">Total amount from all recorded expenses.</p>
+                        </div>
+                        
+                        <!-- Net Balance Card -->
+                        <div class="card p-6 rounded-xl bg-blue-50 border-l-4 border-blue-500">
+                            <p class="text-sm font-medium text-blue-700">Net Balance</p>
+                            <p id="net-balance" class="text-4xl font-extrabold text-blue-600 mt-1">$0.00</p>
+                            <p class="text-xs text-blue-500 mt-2">Income minus Expenses.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- --------------------------------------- -->
+                <!-- VIEW 2: ROSTER (DUES MANAGEMENT) -->
+                <!-- --------------------------------------- -->
+                <div id="roster-view" class="view hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-semibold text-gray-800">Dues Roster Management</h2>
+                        <button id="add-member-btn" class="btn-primary bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700">
+                            + Add New Member
+                        </button>
+                    </div>
+
+                    <!-- Roster Table Card -->
+                    <div class="card bg-white p-4 md:p-6 rounded-xl overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member Name</th>
+                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">YTD Paid</th>
+                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Last Payment</th>
+                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roster-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Roster items will be inserted here -->
+                                <tr><td colspan="4" class="text-center py-4 text-gray-500">Loading roster data...</td></tr>
+                            </tbody>
+                        </table>
+                        <p id="empty-roster-msg" class="hidden text-center text-gray-500 py-6">The roster is currently empty.</p>
+                    </div>
+                </div>
+                
+                <!-- --------------------------------------- -->
+                <!-- VIEW 3: EXPENSES LOG -->
+                <!-- --------------------------------------- -->
+                <div id="expenses-view" class="view hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-semibold text-gray-800">Lodge Expense Log</h2>
+                        <button id="add-expense-btn" class="btn-primary bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700">
+                            + Log New Expense
+                        </button>
+                    </div>
+                    
+                    <div class="card bg-white p-4 md:p-6 rounded-xl">
+                        <ul id="expense-list" class="space-y-4">
+                            <li class="text-center text-gray-500 py-4">Loading expenses...</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="p-4 text-center text-xs text-gray-500 border-t mt-auto">
+            &copy; <span id="current-year-footer"></span> Lodge Financial Dashboard Prototype
+        </footer>
+    </div>
+
+    <!-- Edit/Payment Modal (Roster View) -->
+    <div id="edit-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-lg card p-6" role="dialog" aria-modal="true">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Manage Member Account</h3>
+            <form id="manage-member-form" class="space-y-4">
+                <input type="hidden" id="modal-member-user-id">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm font-semibold text-gray-700">YTD Paid: <span id="modal-ytd-amount" class="font-extrabold text-green-600"></span></p>
+                    <p class="text-sm font-semibold text-gray-700">Last Payment: <span id="modal-last-payment-date" class="font-extrabold text-indigo-600"></span></p>
+                </div>
+                <div>
+                    <label for="modal-display-name" class="block text-sm font-medium text-gray-700">Display Name</label>
+                    <input type="text" id="modal-display-name" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="pt-4 border-t">
+                    <h4 class="text-lg font-semibold mb-3">Record New Payment</h4>
+                    <label for="modal-payment-amount" class="block text-sm font-medium text-gray-700">Amount to Record ($)</label>
+                    <input type="number" id="modal-payment-amount" value="" min="1" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 150">
+                    <button type="button" id="record-payment-btn" class="btn-primary w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg shadow-md hover:bg-indigo-700 mt-3">
+                        Record Payment
+                    </button>
+                    <p id="modal-message" class="mt-2 text-center text-sm font-medium"></p>
+                </div>
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" id="close-modal-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Close</button>
+                    <button type="submit" class="btn-primary bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md ml-3 hover:bg-blue-700">Save Name</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Log Modal (Expenses View) -->
+    <div id="expense-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-lg card p-6" role="dialog" aria-modal="true">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Log New Expense</h3>
+            <form id="expense-form" class="space-y-4">
+                <div>
+                    <label for="expense-title" class="block text-sm font-medium text-gray-700">Expense Title</label>
+                    <input type="text" id="expense-title" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="expense-amount" class="block text-sm font-medium text-gray-700">Amount ($)</label>
+                        <input type="number" id="expense-amount" min="0.01" step="0.01" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label for="expense-category" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="expense-category" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                            <option value="Event">Event</option>
+                            <option value="Supplies">Supplies</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="expense-description" class="block text-sm font-medium text-gray-700">Event/Expense Description</label>
+                    <textarea id="expense-description" rows="3" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></textarea>
+                </div>
+                <div>
+                    <label for="expense-receipt-meta" class="block text-sm font-medium text-gray-700">Receipt/Invoice Reference (Metadata)</label>
+                    <input type="text" id="expense-receipt-meta" placeholder="e.g., Invoice #1234 or Google Drive Link" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                    <p class="text-xs text-gray-500 mt-1">This stores a text reference, not the file itself.</p>
+                </div>
+                <p id="expense-modal-message" class="mt-2 text-center text-sm font-medium"></p>
+                <div class="flex justify-end pt-4 border-t">
+                    <button type="button" id="close-expense-modal-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="btn-primary bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md ml-3 hover:bg-green-700">Log Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, serverTimestamp, setLogLevel, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Global State & Initialization ---
+        let db;
+        let auth;
+        let currentUserId = null;
+        let currentView = 'dashboard';
+        let allMembersData = [];
+        let allExpensesData = [];
+
+        // View Management Function
+        window.changeView = (newView) => {
+            currentView = newView;
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(`${newView}-view`).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                if (btn.dataset.view === newView) {
+                    btn.classList.add('active-nav');
+                } else {
+                    btn.classList.remove('active-nav');
+                }
+            });
+
+            // Trigger data update for the new view (Dashboard relies on both Roster and Expenses)
+            if (newView === 'dashboard') {
+                updateBalanceDashboard();
+            }
+        };
+
+
+        try {
+            if (Object.keys(firebaseConfig).length === 0) {
+                throw new Error("Firebase configuration is missing.");
+            }
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('debug');
+
+            // Set current year displays
+            const currentYear = new Date().getFullYear();
+            document.getElementById('current-year-footer').textContent = currentYear;
+
+            // --- Authentication and Setup ---
+            onAuthStateChanged(auth, async (user) => {
+                const loadingIndicator = document.getElementById('loading-indicator');
+                const viewsContainer = document.getElementById('views');
+                const authStatus = document.getElementById('auth-status');
+
+                if (user) {
+                    currentUserId = user.uid;
+                    authStatus.textContent = `Admin ID: ${currentUserId.substring(0, 8)}...`;
+                    
+                    // Start Real-Time Listeners for all required data
+                    setupRosterListener();
+                    setupExpenseListener();
+
+                    // Show initial content
+                    loadingIndicator.classList.add('hidden');
+                    viewsContainer.classList.remove('hidden');
+                    changeView(currentView); // Initial view render
+
+                } else {
+                    // Sign in if not authenticated
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Authentication failed:", error);
+                        authStatus.textContent = `Status: Auth failed. Check console.`;
+                        loadingIndicator.innerHTML = `<p class="text-red-600">FATAL ERROR: Authentication failed.</p>`;
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error("Initialization Error:", error);
+            document.getElementById('loading-indicator').innerHTML = `<p class="text-red-600">FATAL ERROR: ${error.message}</p>`;
+        }
+        
+        // --- BALANCE DASHBOARD LOGIC ---
+        function updateBalanceDashboard() {
+            let totalIncome = 0;
+            allMembersData.forEach(member => {
+                totalIncome += member.totalPaidYTD || 0;
+            });
+            
+            let totalExpenses = 0;
+            allExpensesData.forEach(expense => {
+                totalExpenses += expense.amount || 0;
+            });
+
+            const netBalance = totalIncome - totalExpenses;
+
+            document.getElementById('total-income').textContent = `$${totalIncome.toFixed(2)}`;
+            document.getElementById('total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
+            
+            const netBalanceEl = document.getElementById('net-balance');
+            netBalanceEl.textContent = `$${netBalance.toFixed(2)}`;
+            
+            // Highlight balance color
+            netBalanceEl.closest('.card').classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
+            netBalanceEl.closest('.card').classList.remove('border-green-500', 'border-red-500', 'border-blue-500');
+
+            if (netBalance >= 0) {
+                netBalanceEl.closest('.card').classList.add('bg-green-50', 'border-green-500');
+                netBalanceEl.classList.add('text-green-600');
+                netBalanceEl.classList.remove('text-red-600');
+            } else {
+                netBalanceEl.closest('.card').classList.add('bg-red-50', 'border-red-500');
+                netBalanceEl.classList.add('text-red-600');
+                netBalanceEl.classList.remove('text-green-600');
+            }
+        }
+
+
+        // --- 1. ROSTER (DUES) MANAGEMENT LISTENERS ---
+
+        function setupRosterListener() {
+            if (!db) return;
+            const rosterColRef = collection(db, `artifacts/${appId}/public/data/lodge_members`);
+            
+            onSnapshot(rosterColRef, (snapshot) => {
+                const rosterTableBody = document.getElementById('roster-table-body');
+                const emptyMsg = document.getElementById('empty-roster-msg');
+                rosterTableBody.innerHTML = '';
+                allMembersData = [];
+
+                snapshot.forEach(doc => {
+                    allMembersData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Update Dashboard immediately
+                updateBalanceDashboard();
+
+                if (allMembersData.length === 0) {
+                    emptyMsg.classList.remove('hidden');
+                    return;
+                } else {
+                    emptyMsg.classList.add('hidden');
+                }
+
+                // Sort by display name
+                allMembersData.sort((a, b) => a.displayName.localeCompare(b.displayName));
+                
+                allMembersData.forEach(member => {
+                    const lastDate = member.lastPaymentDate?.toDate ? member.lastPaymentDate.toDate().toLocaleDateString() : 'N/A';
+                    const ytd = member.totalPaidYTD || 0;
+                    
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${member.displayName}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-right text-green-600">$${ytd.toFixed(2)}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 text-right hidden md:table-cell">${lastDate}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button data-member-id="${member.id}" data-member-name="${member.displayName}" data-ytd="${ytd}" data-last-pay="${lastDate}" class="edit-btn text-indigo-600 hover:text-indigo-900 font-semibold py-1 px-2 rounded-lg border border-indigo-200">
+                                Edit/Pay
+                            </button>
+                        </td>
+                    `;
+                    rosterTableBody.appendChild(row);
+                });
+            });
+        }
+
+        // --- Roster Table Events (Open Modal) ---
+        document.getElementById('roster-table-body').addEventListener('click', (e) => {
+            if (e.target.classList.contains('edit-btn')) {
+                const btn = e.target;
+                openEditModal(btn.dataset.memberId, btn.dataset.memberName, btn.dataset.ytd, btn.dataset.lastPay);
+            }
+        });
+
+        document.getElementById('add-member-btn').addEventListener('click', () => {
+            const newMemberId = 'new-' + Math.random().toString(36).substring(2, 11);
+            openEditModal(newMemberId, '', '0.00', 'N/A');
+        });
+        
+        // --- MODAL Logic (Roster) ---
+        const modal = document.getElementById('edit-modal');
+        document.getElementById('close-modal-btn').addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', (e) => { if (e.target.id === 'edit-modal') modal.classList.add('hidden'); });
+
+        function openEditModal(memberId, displayName, ytd, lastPay) {
+            document.getElementById('modal-message').textContent = '';
+            document.getElementById('modal-member-user-id').value = memberId;
+            document.getElementById('modal-display-name').value = displayName;
+            document.getElementById('modal-payment-amount').value = '';
+            
+            document.getElementById('modal-ytd-amount').textContent = `$${parseFloat(ytd).toFixed(2)}`;
+            document.getElementById('modal-last-payment-date').textContent = lastPay;
+            
+            modal.classList.remove('hidden');
+        }
+
+        // --- Save Name/Update Profile Handler ---
+        document.getElementById('manage-member-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const memberId = document.getElementById('modal-member-user-id').value;
+            const newName = document.getElementById('modal-display-name').value.trim();
+            const messageEl = document.getElementById('modal-message');
+
+            if (!newName) {
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = 'Display name cannot be empty.';
+                return;
+            }
+            
+            messageEl.className = 'mt-2 text-center text-sm font-medium text-blue-600';
+            messageEl.textContent = 'Saving name...';
+
+            try {
+                const memberRef = doc(db, `artifacts/${appId}/public/data/lodge_members`, memberId);
+                
+                await setDoc(memberRef, {
+                    userId: memberId,
+                    displayName: newName,
+                    // If member is new, initialize YTD/LastPayment to null/0. Merging handles existing data.
+                    totalPaidYTD: 0,
+                    lastPaymentDate: null,
+                }, { merge: true });
+
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
+                messageEl.textContent = `Profile for ${newName} saved successfully!`;
+                
+                if (memberId.startsWith('new-')) {
+                     setTimeout(() => modal.classList.add('hidden'), 1500);
+                }
+
+            } catch (error) {
+                console.error("Error saving member profile:", error);
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = `Error saving profile: ${error.message}`;
+            }
+        });
+
+        // --- Record Payment Handler ---
+        document.getElementById('record-payment-btn').addEventListener('click', async () => {
+            const memberId = document.getElementById('modal-member-user-id').value;
+            const amountInput = document.getElementById('modal-payment-amount');
+            const messageEl = document.getElementById('modal-message');
+            const amount = parseFloat(amountInput.value);
+
+            if (isNaN(amount) || amount <= 0) {
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = 'Please enter a valid amount greater than zero.';
+                return;
+            }
+            
+            messageEl.className = 'mt-2 text-center text-sm font-medium text-blue-600';
+            messageEl.textContent = `Recording $${amount.toFixed(2)} payment...`;
+
+            try {
+                // 1. Record the Payment to the Member's Private Collection
+                const paymentsColRef = collection(db, `artifacts/${appId}/users/${memberId}/dues_payments`);
+                await addDoc(paymentsColRef, {
+                    amount: amount,
+                    date: serverTimestamp(),
+                    year: new Date().getFullYear(),
+                    recordedBy: currentUserId,
+                    status: 'Completed (Admin Recorded)'
+                });
+
+                // 2. Recalculate and update the public roster summary
+                await updateMemberSummary(memberId);
+
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
+                messageEl.textContent = `Payment of $${amount.toFixed(2)} recorded successfully!`;
+                amountInput.value = '';
+
+            } catch (error) {
+                console.error("Error recording payment:", error);
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = `Recording Failed: ${error.message}`;
+            }
+        });
+        
+        // --- Helper: Update Member Summary (Calculates New YTD) ---
+        async function updateMemberSummary(memberId) {
+            const memberRef = doc(db, `artifacts/${appId}/public/data/lodge_members`, memberId);
+            const paymentsColRef = collection(db, `artifacts/${appId}/users/${memberId}/dues_payments`);
+            const paymentSnapshot = await getDocs(paymentsColRef);
+            
+            let totalPaidYTD = 0;
+            let latestDate = null;
+            
+            paymentSnapshot.forEach(doc => {
+                const data = doc.data();
+                totalPaidYTD += data.amount;
+                if (data.date && data.date.toDate) {
+                    if (!latestDate || data.date.toDate() > latestDate) {
+                        latestDate = data.date.toDate();
+                    }
+                }
+            });
+
+            const updateData = {
+                totalPaidYTD: totalPaidYTD,
+                lastPaymentDate: latestDate ? serverTimestamp() : null,
+            };
+            
+            await setDoc(memberRef, updateData, { merge: true });
+
+            // Update modal display immediately
+            document.getElementById('modal-ytd-amount').textContent = `$${totalPaidYTD.toFixed(2)}`;
+            document.getElementById('modal-last-payment-date').textContent = latestDate ? latestDate.toLocaleDateString() : 'N/A';
+        }
+
+
+        // --- 2. EXPENSES LOG LISTENERS ---
+        
+        function setupExpenseListener() {
+            if (!db) return;
+
+            const expenseColRef = collection(db, `artifacts/${appId}/public/data/lodge_expenses`);
+            
+            onSnapshot(expenseColRef, (snapshot) => {
+                const expenseListEl = document.getElementById('expense-list');
+                expenseListEl.innerHTML = '';
+                allExpensesData = [];
+
+                snapshot.forEach(doc => {
+                    allExpensesData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Update Dashboard immediately
+                updateBalanceDashboard();
+
+                if (allExpensesData.length === 0) {
+                    expenseListEl.innerHTML = `<li class="text-center text-gray-500 py-6 border border-dashed rounded-lg">No expenses logged yet.</li>`;
+                    return;
+                }
+
+                // Sort by date descending
+                allExpensesData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                
+                allExpensesData.forEach(expense => {
+                    const date = expense.timestamp?.toDate ? expense.timestamp.toDate().toLocaleDateString() : 'Unknown Date';
+                    
+                    const listItem = document.createElement('li');
+                    listItem.className = 'card bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm';
+                    listItem.innerHTML = `
+                        <div class="flex justify-between items-center border-b pb-2 mb-2">
+                            <p class="text-lg font-bold text-gray-800">${expense.title}</p>
+                            <p class="text-xl font-extrabold text-red-600">-$${expense.amount.toFixed(2)}</p>
+                        </div>
+                        <div class="text-sm text-gray-600 grid grid-cols-2 gap-2">
+                            <p><span class="font-medium">Category:</span> ${expense.category}</p>
+                            <p class="text-right"><span class="font-medium">Date Logged:</span> ${date}</p>
+                            <p class="col-span-2"><span class="font-medium">Description:</span> ${expense.description || 'N/A'}</p>
+                            <p class="col-span-2 text-xs truncate">
+                                <span class="font-medium text-gray-700">Receipt Ref:</span> ${expense.receiptMetadata || 'None'}
+                            </p>
+                        </div>
+                    `;
+                    expenseListEl.appendChild(listItem);
+                });
+            });
+        }
+
+        // --- Expense Modal Logic ---
+        const expenseModal = document.getElementById('expense-modal');
+        document.getElementById('add-expense-btn').addEventListener('click', () => {
+            document.getElementById('expense-form').reset();
+            document.getElementById('expense-modal-message').textContent = '';
+            expenseModal.classList.remove('hidden');
+        });
+        document.getElementById('close-expense-modal-btn').addEventListener('click', () => expenseModal.classList.add('hidden'));
+        expenseModal.addEventListener('click', (e) => { if (e.target.id === 'expense-modal') expenseModal.classList.add('hidden'); });
+
+        // --- Log Expense Handler ---
+        document.getElementById('expense-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('expense-title').value.trim();
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const category = document.getElementById('expense-category').value;
+            const description = document.getElementById('expense-description').value.trim();
+            const receiptMetadata = document.getElementById('expense-receipt-meta').value.trim();
+            const messageEl = document.getElementById('expense-modal-message');
+
+            if (!title || isNaN(amount) || amount <= 0) {
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = 'Please fill out the title and a valid amount.';
+                return;
+            }
+
+            messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
+            messageEl.textContent = 'Logging expense...';
+
+            try {
+                const expenseColRef = collection(db, `artifacts/${appId}/public/data/lodge_expenses`);
+                await addDoc(expenseColRef, {
+                    title: title,
+                    amount: amount,
+                    category: category,
+                    description: description,
+                    receiptMetadata: receiptMetadata,
+                    recordedBy: currentUserId,
+                    timestamp: serverTimestamp()
+                });
+
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
+                messageEl.textContent = 'Expense logged successfully!';
+                
+                document.getElementById('expense-form').reset();
+                setTimeout(() => expenseModal.classList.add('hidden'), 1500);
+
+            } catch (error) {
+                console.error("Error logging expense:", error);
+                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
+                messageEl.textContent = `Logging Failed: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
