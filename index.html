@@ -212,7 +212,6 @@
     let app, db, auth, userId = null;
     let isAuthReady = false;
 
-    // --- DUMMY CONFIGURATION CHECKER (Should now be bypassed with your real key) ---
     // Static App ID for the public collection path
     const appId = 'lodge-admin-tool'; 
 
@@ -453,7 +452,7 @@
             const statusClass = member.paidThisYear >= member.annualDues ? 'text-green-600 font-semibold' : 'text-red-500';
             const statusText = member.paidThisYear >= member.annualDues ? 'PAID' : 'DUE';
             
-            const remainingDue = member.annualDues - member.paidThisYear;
+            const remainingDue = member.annualDues - (member.paidThisYear || 0); // Use 0 if paidThisYear is null/undefined
             const payButtonText = remainingDue > 0 ? `Pay ${formatCurrency(remainingDue)}` : 'Full Payment';
 
             const row = `
@@ -487,12 +486,15 @@
 
         showModal(
             "Record Dues Payment", 
-            `Confirm receipt of ${formatCurrency(remainingDue)} from this member. This will mark their dues as paid for the year.`,
+            `Confirm receipt of ${formatCurrency(remainingDue)} from this member.`,
             async () => {
                 try {
                     const memberDocRef = doc(getPublicCollectionRef('members'), memberId);
+                    const currentData = (await getDoc(memberDocRef)).data();
+                    const newPaidTotal = (currentData.paidThisYear || 0) + remainingDue;
+
                     await updateDoc(memberDocRef, {
-                        paidThisYear: remainingDue + (await getDoc(memberDocRef)).data().paidThisYear,
+                        paidThisYear: newPaidTotal,
                         lastPaid: serverTimestamp()
                     });
                     console.log("Dues payment recorded successfully.");
@@ -654,17 +656,18 @@
     // --- UI/TAB LOGIC ---
     document.getElementById('tab-controls').addEventListener('click', function(e) {
         const target = e.target.closest('.tab-button');
-        if (!target) return;
+        if (!target) return; // Exit if the click wasn't on a button
 
         const tabName = target.dataset.tab;
 
-        // Update button active state
+        // 1. Update button active state
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
         target.classList.add('active');
 
-        // Show/Hide tab content
+        // 2. Show/Hide tab content
         document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-        document.getElementById(tabName + '-tab').classList.remove('hidden');
+        // The fix is here: we must use the full ID to select the container
+        document.getElementById(tabName + '-tab').classList.remove('hidden'); 
     });
 
 </script>
