@@ -22,6 +22,9 @@
             border-bottom: 3px solid transparent;
             font-weight: 600;
             transition: all 0.2s;
+            /* Ensure buttons are visible on mobile */
+            flex-grow: 1;
+            text-align: center;
         }
         .tab-button.active {
             border-bottom-color: #2563eb;
@@ -38,14 +41,6 @@
         .balance-negative {
             color: #ef4444; /* Red-500 */
         }
-        .input-group {
-            display: flex;
-            align-items: center;
-        }
-        .input-group input, .input-group select {
-            flex-grow: 1;
-            margin-right: 0.5rem;
-        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -58,6 +53,7 @@
     </div>
 
     <div class="bg-gray-100 p-2 shadow-inner sticky top-16 z-10">
+        <!-- Tab Buttons (Controls) -->
         <div class="flex justify-around container mx-auto" id="tab-controls">
             <button class="tab-button active" data-tab="dashboard">Dashboard</button>
             <button class="tab-button" data-tab="roster">Dues Roster</button>
@@ -201,6 +197,35 @@
             </div>
         </div>
     </div>
+
+
+<!-- FIX: Simple, Non-Module Script for Tab Switching -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabControls = document.getElementById('tab-controls');
+        
+        tabControls.addEventListener('click', function(e) {
+            const target = e.target.closest('.tab-button');
+            if (!target) return;
+
+            const tabName = target.dataset.tab; // e.g., 'dashboard', 'roster', 'expenses'
+
+            // 1. Update button active state
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+
+            // 2. Show/Hide tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                const contentId = content.id; // e.g., 'dashboard-tab'
+                if (contentId === tabName + '-tab') {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+        });
+    });
+</script>
 
 
 <script type="module">
@@ -650,24 +675,6 @@
             console.error("Error adding member:", e);
             showModal("Error", "Could not add member. Check console for details.", () => {});
         }
-    });
-
-
-    // --- UI/TAB LOGIC ---
-    document.getElementById('tab-controls').addEventListener('click', function(e) {
-        const target = e.target.closest('.tab-button');
-        if (!target) return; // Exit if the click wasn't on a button
-
-        const tabName = target.dataset.tab;
-
-        // 1. Update button active state
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        target.classList.add('active');
-
-        // 2. Show/Hide tab content
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-        // The fix is here: we must use the full ID to select the container
-        document.getElementById(tabName + '-tab').classList.remove('hidden'); 
     });
 
 </script>
