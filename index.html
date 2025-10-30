@@ -212,20 +212,21 @@
     </div>
 
 
-<!-- Simple, Non-Module Script for Tab Switching -->
+<!-- FIX: Simple, Non-Module Script for Tab Switching with Persistence -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const tabControls = document.getElementById('tab-controls');
-        
-        tabControls.addEventListener('click', function(e) {
-            const target = e.target.closest('.tab-button');
-            if (!target) return;
+        // Retrieve the last active tab from local storage, default to 'dashboard'
+        const initialTab = localStorage.getItem('activeTab') || 'dashboard';
 
-            const tabName = target.dataset.tab; // e.g., 'dashboard', 'roster', 'expenses'
-
+        // Function to handle the tab switch logic
+        function switchTab(tabName) {
             // 1. Update button active state
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-            target.classList.add('active');
+            const targetButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
 
             // 2. Show/Hide tab content
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -236,6 +237,20 @@
                     content.classList.add('hidden');
                 }
             });
+
+            // 3. Persist selection
+            localStorage.setItem('activeTab', tabName);
+        }
+
+        // Apply initial tab state
+        switchTab(initialTab);
+
+        tabControls.addEventListener('click', function(e) {
+            const target = e.target.closest('.tab-button');
+            if (!target) return;
+
+            const tabName = target.dataset.tab;
+            switchTab(tabName);
         });
     });
 </script>
@@ -243,6 +258,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    // NOTE: We now import getFirestore with the specific database name option
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -253,14 +269,18 @@
     // Static App ID for the public collection path
     const appId = 'lodge-admin-tool'; 
 
-    // YOUR REAL FIREBASE CONFIGURATION (Must be replaced)
+    // 🚨🚨 CRITICAL CONFIGURATION: PROJECT ID & API KEY CHECK 🚨🚨
     const firebaseConfig = {
-        apiKey: "AIzaSyBAYN5FX3snNSLDjcxnjT1...", // <<< REPLACE THIS KEY
+        // Web API Key (Must be correct for all services to work)
+        apiKey: "AIzaSyBAYN5FX3snnSLDjcxnjT1PNC33Qu5TIWo", 
+        // Project ID (This is the most likely error source - ensure this matches your project's ID exactly)
+        projectId: "hezekiah-lodge-admin", 
+        // Auth Domain is usually derived from projectId, but we'll include it for completeness
         authDomain: "hezekiah-lodge-admin.firebaseapp.com",
-        projectId: "hezekiah-lodge-admin",
+        // The rest are often optional for basic setup but good to include
         storageBucket: "hezekiah-lodge-admin.appspot.com",
-        messagingSenderId: "123456789012",
-        appId: "1:123456789012:web:a1b2c3d4e5f6g7h8"
+        messagingSenderId: "599617453177",
+        appId: "1:599617453177:web:a1b2c3d4e5f6g7h8"
     };
     
     // UI Elements
@@ -277,7 +297,7 @@
             recordExpenseBtn.disabled = false;
             recordExpenseBtn.textContent = 'Record Expense';
             addMemberBtn.disabled = false;
-            addMemberBtn.textContent = 'Add Member';
+            addMemberBtn.textContent = 'Add Member'; // Ensure this is the correct text when active
         } else {
             // Disable forms and set loading text
             recordExpenseBtn.disabled = true;
@@ -313,17 +333,28 @@
         };
     }
 
-    function showFatalError(message) {
+    function showFatalError(message, authError = null) {
+        let rulesTip = '';
+        if (authError) {
+            rulesTip = `
+                <ul class="list-disc list-inside mt-3 text-left mx-auto max-w-xs">
+                    <li>**Action 1: Go to Cloud Firestore and click "Create Database".**</li>
+                    <li>**Action 2: Verify Rules** are set to: <code>allow read, write: if true;</code> (for now)</li>
+                </ul>
+                <p class="mt-2 text-xs font-semibold">Auth Code: ${authError.code}</p>
+            `;
+        }
+
         appStatusMessage.innerHTML = `
             <div class="fatal-error-box">
-                <p class="text-xl font-bold mb-2">FATAL ERROR: Configuration Required</p>
+                <p class="text-xl font-bold mb-2">FATAL ERROR: Authentication failed.</p>
                 <p class="text-sm">${message}</p>
-                <p class="mt-2 text-xs font-semibold">Please update the \`firebaseConfig\` block in the code.</p>
+                ${rulesTip}
             </div>
         `;
         authStatusEl.textContent = "Status: Config Error";
         setFormStatus(false, "Config Error");
-        console.error("FATAL ERROR:", message);
+        console.error("FATAL ERROR:", message, authError);
     }
     
     function formatCurrency(amount) {
@@ -335,20 +366,21 @@
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
     
-    // Check if configuration is dummy and block app if so
-    if (firebaseConfig.apiKey.includes("AIzaSy")) {
-        showFatalError("The **DUMMY FIREBASE API KEY** is still present.");
+    // Check if configuration is dummy (not strictly needed, but good practice)
+    if (firebaseConfig.apiKey.includes("YOUR_ACTUAL") || firebaseConfig.apiKey.length < 10) {
+        showFatalError("The FIREBASE API KEY is missing or invalid.");
         return; // Stop execution
     }
 
     try {
         app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
+        // Explicitly connect to the default database instance
+        db = getFirestore(app, 'default'); 
         auth = getAuth(app);
         console.log("Firebase App Initialized.");
         setFormStatus(false, "Authenticating..."); // Set initial status
     } catch (e) {
-        showFatalError("Firebase configuration is invalid or failed to initialize.");
+        showFatalError("Firebase configuration is invalid or failed to initialize.", e);
         console.error("Firebase Initialization Error:", e);
         return;
     }
@@ -359,9 +391,9 @@
             await signInAnonymously(auth);
             // onAuthStateChanged will handle the rest
         } catch (error) {
-            authStatusEl.textContent = "Status: Auth failed. Check console.";
+            // This is the error handler for signInAnonymously failure
+            showFatalError(`Authentication failed, likely due to a Project ID mismatch or missing database.`, error);
             setFormStatus(false, "Auth Failed");
-            console.error("Authentication Error:", error.code, error.message);
         }
     }
 
@@ -372,6 +404,9 @@
             authStatusEl.textContent = `Status: Logged in (User ID: ${userId.substring(0, 8)}...)`;
             setFormStatus(true, "Add Member"); // Forms are now active
             console.log("User signed in anonymously. UID:", userId);
+            
+            // Clear the fatal error message if present after successful auth
+            document.getElementById('app-status-message').innerHTML = ''; 
             
             // Start listening for data now that we have a user
             setupAllListeners();
