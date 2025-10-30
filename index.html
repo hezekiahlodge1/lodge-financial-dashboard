@@ -3,692 +3,671 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lodge Financial Dashboard</title>
-    <!-- Load Tailwind CSS -->
+    <title>Lodge Financial Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Light slate background */
+            background-color: #f7f7f7;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 100%;
+            padding: 1rem;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tab-button.active {
+            border-bottom-color: #2563eb;
+            color: #2563eb;
         }
         .card {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
         }
-        .header-bg {
-            background-color: #0f172a; /* Slate 900 primary color */
+        .balance-positive {
+            color: #10b981; /* Green-500 */
         }
-        .btn-primary {
-            transition: background-color 0.15s ease-in-out, transform 0.1s ease-out;
+        .balance-negative {
+            color: #ef4444; /* Red-500 */
         }
-        .btn-primary:hover { background-color: #1e3a8a; }
-        .btn-primary:active { transform: scale(0.98); }
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(3px);
-            z-index: 50;
+        .input-group {
+            display: flex;
+            align-items: center;
         }
-        .nav-item {
-            transition: background-color 0.2s;
-        }
-        .active-nav {
-            border-bottom: 3px solid #3b82f6;
-            color: #3b82f6;
-            font-weight: 600;
+        .input-group input, .input-group select {
+            flex-grow: 1;
+            margin-right: 0.5rem;
         }
     </style>
 </head>
-<body>
+<body class="min-h-screen">
 
-    <div id="app" class="min-h-screen flex flex-col">
-        <!-- Header -->
-        <header class="header-bg text-white shadow-lg">
-            <div class="p-4 flex justify-between items-center">
-                <h1 class="text-xl md:text-2xl font-bold">Lodge Financial Admin</h1>
-                <p id="auth-status" class="text-xs md:text-sm opacity-75">Status: Connecting...</p>
-            </div>
-            
-            <!-- Navigation -->
-            <nav class="flex justify-around bg-gray-100 text-gray-700">
-                <button data-view="dashboard" class="nav-item flex-1 py-3 text-sm md:text-base active-nav" onclick="changeView('dashboard')">Dashboard</button>
-                <button data-view="roster" class="nav-item flex-1 py-3 text-sm md:text-base" onclick="changeView('roster')">Dues Roster</button>
-                <button data-view="expenses" class="nav-item flex-1 py-3 text-sm md:text-base" onclick="changeView('expenses')">Expenses</button>
-            </nav>
-        </header>
+    <div class="bg-white shadow-md p-4 sticky top-0 z-10">
+        <div class="flex justify-between items-center container mx-auto">
+            <h1 class="text-xl font-bold text-gray-800">Lodge Financial Admin</h1>
+            <span id="auth-status" class="text-sm text-gray-500">Status: Connecting...</span>
+        </div>
+    </div>
 
-        <!-- Main Content Area -->
-        <main class="flex-grow p-4 md:p-6">
-            <div id="loading-indicator" class="text-center p-8 text-gray-600">
-                <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-                <p class="mt-2">Authenticating and loading data...</p>
-            </div>
+    <div class="bg-gray-100 p-2 shadow-inner sticky top-16 z-10">
+        <div class="flex justify-around container mx-auto" id="tab-controls">
+            <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-button" data-tab="roster">Dues Roster</button>
+            <button class="tab-button" data-tab="expenses">Expenses</button>
+        </div>
+    </div>
 
-            <div id="views" class="hidden">
-                <!-- --------------------------------------- -->
-                <!-- VIEW 1: DASHBOARD (BALANCE) -->
-                <!-- --------------------------------------- -->
-                <div id="dashboard-view" class="view space-y-8">
-                    <h2 class="text-3xl font-extrabold text-gray-800">Financial Summary</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Income Card -->
-                        <div class="card p-6 rounded-xl bg-green-50 border-l-4 border-green-500">
-                            <p class="text-sm font-medium text-green-700">Total Dues Income (YTD)</p>
-                            <p id="total-income" class="text-4xl font-extrabold text-green-600 mt-1">$0.00</p>
-                            <p class="text-xs text-green-500 mt-2">Sum of all members' YTD payments.</p>
-                        </div>
-                        
-                        <!-- Expenses Card -->
-                        <div class="card p-6 rounded-xl bg-red-50 border-l-4 border-red-500">
-                            <p class="text-sm font-medium text-red-700">Total Expenses Logged</p>
-                            <p id="total-expenses" class="text-4xl font-extrabold text-red-600 mt-1">$0.00</p>
-                            <p class="text-xs text-red-500 mt-2">Total amount from all recorded expenses.</p>
-                        </div>
-                        
-                        <!-- Net Balance Card -->
-                        <div class="card p-6 rounded-xl bg-blue-50 border-l-4 border-blue-500">
-                            <p class="text-sm font-medium text-blue-700">Net Balance</p>
-                            <p id="net-balance" class="text-4xl font-extrabold text-blue-600 mt-1">$0.00</p>
-                            <p class="text-xs text-blue-500 mt-2">Income minus Expenses.</p>
-                        </div>
-                    </div>
-                </div>
+    <main class="container mx-auto mt-4">
 
-                <!-- --------------------------------------- -->
-                <!-- VIEW 2: ROSTER (DUES MANAGEMENT) -->
-                <!-- --------------------------------------- -->
-                <div id="roster-view" class="view hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-semibold text-gray-800">Dues Roster Management</h2>
-                        <button id="add-member-btn" class="btn-primary bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700">
-                            + Add New Member
-                        </button>
-                    </div>
-
-                    <!-- Roster Table Card -->
-                    <div class="card bg-white p-4 md:p-6 rounded-xl overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member Name</th>
-                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">YTD Paid</th>
-                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Last Payment</th>
-                                    <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="roster-table-body" class="bg-white divide-y divide-gray-200">
-                                <!-- Roster items will be inserted here -->
-                                <tr><td colspan="4" class="text-center py-4 text-gray-500">Loading roster data...</td></tr>
-                            </tbody>
-                        </table>
-                        <p id="empty-roster-msg" class="hidden text-center text-gray-500 py-6">The roster is currently empty.</p>
-                    </div>
-                </div>
+        <!-- Tab Content Containers -->
+        <div id="dashboard-tab" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
-                <!-- --------------------------------------- -->
-                <!-- VIEW 3: EXPENSES LOG -->
-                <!-- --------------------------------------- -->
-                <div id="expenses-view" class="view hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-semibold text-gray-800">Lodge Expense Log</h2>
-                        <button id="add-expense-btn" class="btn-primary bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700">
-                            + Log New Expense
+                <!-- Financial Summary Card -->
+                <div class="card p-4 col-span-1 md:col-span-2">
+                    <h2 class="text-lg font-semibold mb-3 border-b pb-2">Financial Summary</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-gray-700">
+                            <span>Total Dues Collected:</span>
+                            <span id="total-dues" class="font-bold text-lg text-blue-600">$0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-gray-700">
+                            <span>Total Expenses:</span>
+                            <span id="total-expenses" class="font-bold text-lg text-red-500">-$0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t">
+                            <span class="text-xl font-bold">Net Balance:</span>
+                            <span id="net-balance" class="text-2xl font-extrabold balance-positive">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expense Form Card -->
+                <div class="card p-4 col-span-1">
+                    <h2 class="text-lg font-semibold mb-3 border-b pb-2">Record New Expense</h2>
+                    <form id="expense-form" class="space-y-3">
+                        <div>
+                            <label for="expense-amount" class="block text-sm font-medium text-gray-700">Amount ($)</label>
+                            <input type="number" step="0.01" id="expense-amount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="expense-description" class="block text-sm font-medium text-gray-700">Description</label>
+                            <input type="text" id="expense-description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                            Record Expense
                         </button>
-                    </div>
-                    
-                    <div class="card bg-white p-4 md:p-6 rounded-xl">
-                        <ul id="expense-list" class="space-y-4">
-                            <li class="text-center text-gray-500 py-4">Loading expenses...</li>
-                        </ul>
-                    </div>
+                    </form>
                 </div>
-
             </div>
-        </main>
 
-        <!-- Footer -->
-        <footer class="p-4 text-center text-xs text-gray-500 border-t mt-auto">
-            &copy; <span id="current-year-footer"></span> Lodge Financial Dashboard Prototype
-        </footer>
-    </div>
+            <!-- Recent Activity Table (Placeholder) -->
+            <div class="card p-4 mt-6">
+                <h2 class="text-lg font-semibold mb-3 border-b pb-2">Recent Expenses</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Date</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">Description</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-expenses-body" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="3" class="px-3 py-2 text-center text-sm text-gray-500">Loading recent expenses...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p id="expense-message" class="mt-2 text-sm text-center text-gray-500 hidden">Showing last 5 expenses.</p>
+            </div>
 
-    <!-- Edit/Payment Modal (Roster View) -->
-    <div id="edit-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl w-full max-w-lg card p-6" role="dialog" aria-modal="true">
-            <h3 class="text-xl font-bold mb-4 border-b pb-2">Manage Member Account</h3>
-            <form id="manage-member-form" class="space-y-4">
-                <input type="hidden" id="modal-member-user-id">
-                <div class="bg-blue-50 p-4 rounded-lg">
-                    <p class="text-sm font-semibold text-gray-700">YTD Paid: <span id="modal-ytd-amount" class="font-extrabold text-green-600"></span></p>
-                    <p class="text-sm font-semibold text-gray-700">Last Payment: <span id="modal-last-payment-date" class="font-extrabold text-indigo-600"></span></p>
+        </div>
+
+        <div id="roster-tab" class="tab-content hidden">
+            <!-- Dues Roster and Member Management -->
+            <div class="card p-4">
+                <h2 class="text-lg font-semibold mb-4 border-b pb-2">Dues Roster</h2>
+                
+                <!-- Add Member Form -->
+                <form id="add-member-form" class="mb-6 p-4 border rounded-lg bg-gray-50">
+                    <h3 class="text-md font-medium mb-3">Add New Member</h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="member-name" placeholder="Member Name" class="p-2 border rounded-md flex-grow" required>
+                        <input type="number" id="annual-dues" placeholder="Annual Dues ($)" step="1" class="p-2 border rounded-md w-full sm:w-1/3" required value="100">
+                        <button type="submit" class="py-2 px-4 rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition">Add Member</button>
+                    </div>
+                </form>
+
+                <!-- Roster Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member Name</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Annual Dues</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Paid This Year</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dues-roster-body" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="5" class="px-3 py-2 text-center text-sm text-gray-500">Loading roster...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div>
-                    <label for="modal-display-name" class="block text-sm font-medium text-gray-700">Display Name</label>
-                    <input type="text" id="modal-display-name" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+        </div>
+
+        <div id="expenses-tab" class="tab-content hidden">
+            <!-- Expense History -->
+            <div class="card p-4">
+                <h2 class="text-lg font-semibold mb-3 border-b pb-2">Full Expense History</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Date</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">Description</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Amount</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="full-expenses-body" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="4" class="px-3 py-2 text-center text-sm text-gray-500">Loading all expenses...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="pt-4 border-t">
-                    <h4 class="text-lg font-semibold mb-3">Record New Payment</h4>
-                    <label for="modal-payment-amount" class="block text-sm font-medium text-gray-700">Amount to Record ($)</label>
-                    <input type="number" id="modal-payment-amount" value="" min="1" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 150">
-                    <button type="button" id="record-payment-btn" class="btn-primary w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg shadow-md hover:bg-indigo-700 mt-3">
-                        Record Payment
-                    </button>
-                    <p id="modal-message" class="mt-2 text-center text-sm font-medium"></p>
-                </div>
-                <div class="flex justify-end pt-4 border-t">
-                    <button type="button" id="close-modal-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Close</button>
-                    <button type="submit" class="btn-primary bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md ml-3 hover:bg-blue-700">Save Name</button>
-                </div>
-            </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Confirmations/Messages -->
+    <div id="app-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">Confirmation</h3>
+            <p id="modal-message" class="text-gray-700 mb-6">Are you sure you want to proceed?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-cancel-btn" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100 transition">Cancel</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition">Confirm</button>
+            </div>
         </div>
     </div>
 
-    <!-- Expense Log Modal (Expenses View) -->
-    <div id="expense-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl w-full max-w-lg card p-6" role="dialog" aria-modal="true">
-            <h3 class="text-xl font-bold mb-4 border-b pb-2">Log New Expense</h3>
-            <form id="expense-form" class="space-y-4">
-                <div>
-                    <label for="expense-title" class="block text-sm font-medium text-gray-700">Expense Title</label>
-                    <input type="text" id="expense-title" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="expense-amount" class="block text-sm font-medium text-gray-700">Amount ($)</label>
-                        <input type="number" id="expense-amount" min="0.01" step="0.01" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
-                    </div>
-                    <div>
-                        <label for="expense-category" class="block text-sm font-medium text-gray-700">Category</label>
-                        <select id="expense-category" required class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
-                            <option value="Event">Event</option>
-                            <option value="Supplies">Supplies</option>
-                            <option value="Maintenance">Maintenance</option>
-                            <option value="Utilities">Utilities</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label for="expense-description" class="block text-sm font-medium text-gray-700">Event/Expense Description</label>
-                    <textarea id="expense-description" rows="3" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></textarea>
-                </div>
-                <div>
-                    <label for="expense-receipt-meta" class="block text-sm font-medium text-gray-700">Receipt/Invoice Reference (Metadata)</label>
-                    <input type="text" id="expense-receipt-meta" placeholder="e.g., Invoice #1234 or Google Drive Link" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
-                    <p class="text-xs text-gray-500 mt-1">This stores a text reference, not the file itself.</p>
-                </div>
-                <p id="expense-modal-message" class="mt-2 text-center text-sm font-medium"></p>
-                <div class="flex justify-end pt-4 border-t">
-                    <button type="button" id="close-expense-modal-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="btn-primary bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md ml-3 hover:bg-green-700">Log Expense</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        // --- Static Dummy Config for External Deployment ---
-        // These are hardcoded values to prevent the "Firebase configuration is missing" error on GitHub Pages.
-        // NOTE: The database will NOT work until you replace the "DUMMY_API_KEY" below with a REAL Firebase Config.
-        const appId = 'lodge-admin-tool';
- const firebaseConfig = {
-    apiKey: "AIzaSyBAYN5FX3snNSLDjcxnjT1...", // YOUR REAL API KEY
-    authDomain: "hezekiah-lodge-admin.firebaseapp.com",
-    projectId: "hezekiah-lodge-admin",
-    storageBucket: "hezekiah-lodge-admin.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:a1b2c3d4e5f6g7h8"
-};
-        const initialAuthToken = null; // No token available outside the environment
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+    // --- GLOBAL VARIABLES ---
+    let app, db, auth, userId = null;
+    let isAuthReady = false;
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, serverTimestamp, setLogLevel, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // --- DUMMY CONFIGURATION CHECKER (Should now be bypassed with your real key) ---
+    // Static App ID for the public collection path
+    const appId = 'lodge-admin-tool'; 
 
-        // --- Global State & Initialization ---
-        let db;
-        let auth;
-        let currentUserId = null;
-        let currentView = 'dashboard';
-        let allMembersData = [];
-        let allExpensesData = [];
+    // YOUR REAL FIREBASE CONFIGURATION (Replaced with your actual values)
+    const firebaseConfig = {
+        apiKey: "AIzaSyBAYN5FX3snNSLDjcxnjT1...", // <<< YOUR REAL KEY
+        authDomain: "hezekiah-lodge-admin.firebaseapp.com",
+        projectId: "hezekiah-lodge-admin",
+        storageBucket: "hezekiah-lodge-admin.appspot.com",
+        messagingSenderId: "123456789012",
+        appId: "1:123456789012:web:a1b2c3d4e5f6g7h8"
+    };
 
-        // View Management Function
-        window.changeView = (newView) => {
-            currentView = newView;
-            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-            document.getElementById(`${newView}-view`).classList.remove('hidden');
+    // Check if configuration is dummy and block app if so
+    if (firebaseConfig.apiKey.includes("DUMMY")) {
+        showFatalError("DUMMY CONFIGURATION LOADED. Replace DUMMY_API_KEY with your actual Firebase API Key to enable saving data.");
+        return;
+    }
+    
+    // Global State & Initialization
+    const authStatusEl = document.getElementById('auth-status');
+
+    // --- UTILITIES ---
+
+    // Simple Modal/Confirmation
+    const modalEl = document.getElementById('app-modal');
+    const modalTitleEl = document.getElementById('modal-title');
+    const modalMessageEl = document.getElementById('modal-message');
+    const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+    function showModal(title, message, onConfirm) {
+        modalTitleEl.textContent = title;
+        modalMessageEl.textContent = message;
+        modalEl.classList.remove('hidden');
+
+        // Clear previous listeners
+        modalConfirmBtn.onclick = null;
+        modalCancelBtn.onclick = null;
+
+        // Set new listeners
+        modalConfirmBtn.onclick = () => {
+            onConfirm();
+            modalEl.classList.add('hidden');
+        };
+        modalCancelBtn.onclick = () => {
+            modalEl.classList.add('hidden');
+        };
+    }
+
+    function showFatalError(message) {
+        document.querySelector('main').innerHTML = `
+            <div class="card p-8 text-center bg-red-50 text-red-600">
+                <p class="text-xl font-bold mb-4">FATAL ERROR: ${message}</p>
+                <p class="text-sm">Please check the console for debugging information.</p>
+            </div>
+        `;
+        authStatusEl.textContent = "Status: Error";
+        console.error("FATAL ERROR:", message);
+    }
+    
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(amount);
+    }
+
+    // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+    
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        console.log("Firebase App Initialized.");
+    } catch (e) {
+        showFatalError("Firebase configuration is missing or invalid.");
+        console.error("Firebase Initialization Error:", e);
+        return;
+    }
+
+    async function authenticate() {
+        try {
+            authStatusEl.textContent = "Status: Authenticating...";
+            await signInAnonymously(auth);
+            // onAuthStateChanged will handle the rest
+        } catch (error) {
+            authStatusEl.textContent = "Status: Auth failed. Check console.";
+            console.error("Authentication Error:", error.code, error.message);
+            showFatalError(`Authentication failed. Code: ${error.code}`);
+        }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            userId = user.uid;
+            isAuthReady = true;
+            authStatusEl.textContent = `Status: Logged in (User ID: ${userId.substring(0, 8)}...)`;
+            console.log("User signed in anonymously. UID:", userId);
             
-            document.querySelectorAll('.nav-item').forEach(btn => {
-                if (btn.dataset.view === newView) {
-                    btn.classList.add('active-nav');
-                } else {
-                    btn.classList.remove('active-nav');
+            // Start listening for data now that we have a user
+            setupAllListeners();
+
+        } else {
+            // User is signed out, or failed to sign in
+            userId = null;
+            isAuthReady = false;
+            authStatusEl.textContent = "Status: Signed out.";
+        }
+    });
+
+    authenticate(); // Kick off the process
+
+
+    // --- FIREBASE PATHS ---
+
+    // Public collection path: /artifacts/{appId}/public/data/
+    function getPublicCollectionRef(collectionName) {
+        return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+    }
+    
+    // --- DATA LISTENERS AND RENDERING ---
+
+    function setupAllListeners() {
+        if (!isAuthReady) return;
+        
+        setupFinancialSummaryListener();
+        setupRosterListener();
+        setupExpenseHistoryListener();
+    }
+
+    // 1. FINANCIAL SUMMARY (Dashboard & Totals)
+
+    let totalDues = 0;
+    let totalExpenses = 0;
+
+    function setupFinancialSummaryListener() {
+        // Listen for all dues
+        const rosterRef = getPublicCollectionRef('members');
+        onSnapshot(rosterRef, (snapshot) => {
+            totalDues = 0;
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.paidThisYear) {
+                    totalDues += data.paidThisYear;
                 }
             });
+            renderFinancialSummary();
+        }, (error) => console.error("Dues Listener Error:", error));
 
-            // Trigger data update for the new view (Dashboard relies on both Roster and Expenses)
-            if (newView === 'dashboard') {
-                updateBalanceDashboard();
+        // Listen for all expenses
+        const expensesRef = getPublicCollectionRef('expenses');
+        onSnapshot(expensesRef, (snapshot) => {
+            totalExpenses = 0;
+            const expensesData = [];
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                totalExpenses += data.amount;
+                expensesData.push({...data, id: doc.id});
+            });
+            renderFinancialSummary();
+            renderRecentExpenses(expensesData);
+        }, (error) => console.error("Expenses Listener Error:", error));
+    }
+
+    function renderFinancialSummary() {
+        const netBalance = totalDues - totalExpenses;
+        
+        document.getElementById('total-dues').textContent = formatCurrency(totalDues);
+        document.getElementById('total-expenses').textContent = formatCurrency(totalExpenses);
+
+        const netBalanceEl = document.getElementById('net-balance');
+        netBalanceEl.textContent = formatCurrency(netBalance);
+        
+        // Highlight balance color
+        netBalanceEl.classList.remove('balance-positive', 'balance-negative');
+        if (netBalance >= 0) {
+            netBalanceEl.classList.add('balance-positive');
+        } else {
+            netBalanceEl.classList.add('balance-negative');
+        }
+    }
+
+    function renderRecentExpenses(expensesData) {
+        const body = document.getElementById('recent-expenses-body');
+        body.innerHTML = '';
+
+        // Sort by date/timestamp descending and show top 5
+        const sortedExpenses = expensesData.sort((a, b) => 
+            (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)
+        ).slice(0, 5);
+
+        if (sortedExpenses.length === 0) {
+            body.innerHTML = `<tr><td colspan="3" class="px-3 py-2 text-center text-sm text-gray-500">No expenses recorded yet.</td></tr>`;
+            document.getElementById('expense-message').classList.add('hidden');
+            return;
+        }
+
+        sortedExpenses.forEach(expense => {
+            const date = expense.timestamp ? new Date(expense.timestamp.toMillis()).toLocaleDateString() : 'N/A';
+            const row = `
+                <tr>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${date}</td>
+                    <td class="px-3 py-2 text-sm text-gray-700">${expense.description}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-red-500">
+                        -${formatCurrency(expense.amount)}
+                    </td>
+                </tr>
+            `;
+            body.innerHTML += row;
+        });
+        document.getElementById('expense-message').classList.remove('hidden');
+    }
+
+    // 2. ROSTER (DUES) MANAGEMENT
+
+    function setupRosterListener() {
+        const rosterRef = getPublicCollectionRef('members');
+        onSnapshot(rosterRef, (snapshot) => {
+            const rosterData = [];
+            snapshot.docs.forEach(doc => {
+                rosterData.push({...doc.data(), id: doc.id});
+            });
+            renderRoster(rosterData);
+        }, (error) => console.error("Roster Listener Error:", error));
+    }
+
+    function renderRoster(rosterData) {
+        const body = document.getElementById('dues-roster-body');
+        body.innerHTML = '';
+
+        if (rosterData.length === 0) {
+            body.innerHTML = `<tr><td colspan="5" class="px-3 py-2 text-center text-sm text-gray-500">No members added yet.</td></tr>`;
+            return;
+        }
+
+        rosterData.forEach(member => {
+            const statusClass = member.paidThisYear >= member.annualDues ? 'text-green-600 font-semibold' : 'text-red-500';
+            const statusText = member.paidThisYear >= member.annualDues ? 'PAID' : 'DUE';
+            
+            const remainingDue = member.annualDues - member.paidThisYear;
+            const payButtonText = remainingDue > 0 ? `Pay ${formatCurrency(remainingDue)}` : 'Full Payment';
+
+            const row = `
+                <tr>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${member.name}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-gray-700">${formatCurrency(member.annualDues)}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center text-blue-600 font-medium">${formatCurrency(member.paidThisYear || 0)}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center ${statusClass}">${statusText}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                        <button data-id="${member.id}" data-due="${remainingDue}" class="pay-dues-btn py-1 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-green-600 hover:bg-green-700 transition disabled:opacity-50" ${remainingDue <= 0 ? 'disabled' : ''}>
+                            ${payButtonText}
+                        </button>
+                    </td>
+                </tr>
+            `;
+            body.innerHTML += row;
+        });
+
+        // Add event listeners for pay buttons
+        document.querySelectorAll('.pay-dues-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const memberId = this.dataset.id;
+                const remainingDue = parseFloat(this.dataset.due);
+                handleDuesPayment(memberId, remainingDue);
+            });
+        });
+    }
+    
+    async function handleDuesPayment(memberId, remainingDue) {
+        if (!isAuthReady) return;
+
+        showModal(
+            "Record Dues Payment", 
+            `Confirm receipt of ${formatCurrency(remainingDue)} from this member. This will mark their dues as paid for the year.`,
+            async () => {
+                try {
+                    const memberDocRef = doc(getPublicCollectionRef('members'), memberId);
+                    await updateDoc(memberDocRef, {
+                        paidThisYear: remainingDue + (await getDoc(memberDocRef)).data().paidThisYear,
+                        lastPaid: serverTimestamp()
+                    });
+                    console.log("Dues payment recorded successfully.");
+                } catch (e) {
+                    console.error("Error recording dues payment:", e);
+                    showModal("Error", "Could not record payment. Check console for details.", () => {});
+                }
             }
-        };
+        );
+    }
+    
+    // 3. EXPENSE HISTORY (Full List)
 
+    function setupExpenseHistoryListener() {
+        const expensesRef = getPublicCollectionRef('expenses');
+        // Fetch all expenses, sorted by timestamp
+        const q = query(expensesRef);
+
+        onSnapshot(q, (snapshot) => {
+            const expensesData = [];
+            snapshot.docs.forEach(doc => {
+                expensesData.push({...doc.data(), id: doc.id});
+            });
+            // Sort in-memory (descending) as Firestore ordering requires indexes we avoid
+            expensesData.sort((a, b) => 
+                (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)
+            );
+            renderFullExpenseHistory(expensesData);
+        }, (error) => console.error("Full Expenses Listener Error:", error));
+    }
+
+    function renderFullExpenseHistory(expensesData) {
+        const body = document.getElementById('full-expenses-body');
+        body.innerHTML = '';
+
+        if (expensesData.length === 0) {
+            body.innerHTML = `<tr><td colspan="4" class="px-3 py-2 text-center text-sm text-gray-500">No expenses recorded yet.</td></tr>`;
+            return;
+        }
+
+        expensesData.forEach(expense => {
+            const date = expense.timestamp ? new Date(expense.timestamp.toMillis()).toLocaleDateString() : 'N/A';
+            const row = `
+                <tr>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${date}</td>
+                    <td class="px-3 py-2 text-sm text-gray-700">${expense.description}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-right font-medium text-red-500">
+                        -${formatCurrency(expense.amount)}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center">
+                        <button data-id="${expense.id}" class="delete-expense-btn text-red-500 hover:text-red-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block">
+                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.5H4.25a.75.75 0 0 0 0 1.5h.5c.343 0 .67.142.905.39l.006.007.41 1.708a2.5 2.5 0 0 0 4.658 0l.41-1.708.006-.007a1.751 1.751 0 0 0 .905-.39h.5a.75.75 0 0 0 0-1.5H14v-.5A2.75 2.75 0 0 0 11.25 1h-2.5ZM9 3.75v.5h2v-.5A1.25 1.25 0 0 0 9.75 2.5h-1.5A1.25 1.25 0 0 0 7 3.75v.5h2Zm-3.25 7a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H5.75Zm9.25 0a.75.75 0 0 0 0 1.5h-.008a.75.75 0 0 0 0-1.5H15Z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            body.innerHTML += row;
+        });
+
+        // Add event listeners for delete buttons
+        document.querySelectorAll('.delete-expense-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const expenseId = this.dataset.id;
+                confirmDeleteExpense(expenseId);
+            });
+        });
+    }
+
+    function confirmDeleteExpense(expenseId) {
+        if (!isAuthReady) return;
+
+        showModal(
+            "Confirm Deletion",
+            "Are you sure you want to permanently delete this expense record?",
+            async () => {
+                try {
+                    const expenseDocRef = doc(getPublicCollectionRef('expenses'), expenseId);
+                    await deleteDoc(expenseDocRef);
+                    console.log("Expense deleted successfully.");
+                } catch (e) {
+                    console.error("Error deleting expense:", e);
+                    showModal("Error", "Could not delete expense. Check console for details.", () => {});
+                }
+            }
+        );
+    }
+
+    // --- FORM SUBMISSIONS ---
+
+    // Expense Form
+    document.getElementById('expense-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!isAuthReady) return;
+
+        const amount = parseFloat(document.getElementById('expense-amount').value);
+        const description = document.getElementById('expense-description').value.trim();
+
+        if (amount <= 0 || !description) {
+            showModal("Error", "Please enter a valid amount and description.", () => {});
+            return;
+        }
 
         try {
-            // Check if Firebase is configured (even if using dummy data)
-            if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "DUMMY_API_KEY") {
-                throw new Error("DUMMY CONFIGURATION LOADED. Replace DUMMY_API_KEY with your actual Firebase API Key to enable saving data.");
-            }
-
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            setLogLevel('debug');
-
-            // Set current year displays
-            const currentYear = new Date().getFullYear();
-            document.getElementById('current-year-footer').textContent = currentYear;
-
-            // --- Authentication and Setup ---
-            onAuthStateChanged(auth, async (user) => {
-                const loadingIndicator = document.getElementById('loading-indicator');
-                const viewsContainer = document.getElementById('views');
-                const authStatus = document.getElementById('auth-status');
-
-                if (user) {
-                    currentUserId = user.uid;
-                    authStatus.textContent = `Admin ID: ${currentUserId.substring(0, 8)}...`;
-                    
-                    // Start Real-Time Listeners for all required data
-                    setupRosterListener();
-                    setupExpenseListener();
-
-                    // Show initial content
-                    loadingIndicator.classList.add('hidden');
-                    viewsContainer.classList.remove('hidden');
-                    changeView(currentView); // Initial view render
-
-                } else {
-                    // Sign in if not authenticated
-                    try {
-                        // For GitHub Pages deployment, we always sign in anonymously if no token is provided.
-                        await signInAnonymously(auth);
-                        
-                    } catch (error) {
-                        console.error("Authentication failed:", error);
-                        authStatus.textContent = `Status: Auth failed. Check console.`;
-                        loadingIndicator.innerHTML = `<p class="text-red-600">FATAL ERROR: Authentication failed. See console for details.</p>`;
-                    }
-                }
+            await addDoc(getPublicCollectionRef('expenses'), {
+                amount: amount,
+                description: description,
+                timestamp: serverTimestamp(),
+                recordedBy: userId
             });
-
-        } catch (error) {
-            console.error("Initialization Error:", error);
-            document.getElementById('loading-indicator').innerHTML = `<p class="text-red-600 font-bold">FATAL ERROR: ${error.message}</p>`;
+            this.reset();
+            console.log("Expense recorded successfully.");
+        } catch (e) {
+            console.error("Error recording expense:", e);
+            showModal("Error", "Could not record expense. Check console for details.", () => {});
         }
-        
-        // --- BALANCE DASHBOARD LOGIC ---
-        function updateBalanceDashboard() {
-            let totalIncome = 0;
-            allMembersData.forEach(member => {
-                totalIncome += member.totalPaidYTD || 0;
-            });
-            
-            let totalExpenses = 0;
-            allExpensesData.forEach(expense => {
-                totalExpenses += expense.amount || 0;
-            });
+    });
 
-            const netBalance = totalIncome - totalExpenses;
+    // Add Member Form
+    document.getElementById('add-member-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!isAuthReady) return;
 
-            document.getElementById('total-income').textContent = `$${totalIncome.toFixed(2)}`;
-            document.getElementById('total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
-            
-            const netBalanceEl = document.getElementById('net-balance');
-            netBalanceEl.textContent = `$${netBalance.toFixed(2)}`;
-            
-            // Highlight balance color
-            netBalanceEl.closest('.card').classList.remove('bg-green-50', 'bg-red-50', 'bg-blue-50');
-            netBalanceEl.closest('.card').classList.remove('border-green-500', 'border-red-500', 'border-blue-500');
+        const name = document.getElementById('member-name').value.trim();
+        const annualDues = parseFloat(document.getElementById('annual-dues').value);
 
-            if (netBalance >= 0) {
-                netBalanceEl.closest('.card').classList.add('bg-green-50', 'border-green-500');
-                netBalanceEl.classList.add('text-green-600');
-                netBalanceEl.classList.remove('text-red-600');
-            } else {
-                netBalanceEl.closest('.card').classList.add('bg-red-50', 'border-red-500');
-                netBalanceEl.classList.add('text-red-600');
-                netBalanceEl.classList.remove('text-green-600');
-            }
+        if (!name || annualDues <= 0) {
+            showModal("Error", "Please enter a valid member name and annual dues amount.", () => {});
+            return;
         }
 
+        try {
+            // Check if member already exists (simple name check)
+            const membersRef = getPublicCollectionRef('members');
+            const q = query(membersRef, where('name', '==', name));
+            const existing = await getDocs(q);
 
-        // --- 1. ROSTER (DUES) MANAGEMENT LISTENERS ---
-
-        function setupRosterListener() {
-            if (!db) return;
-            const rosterColRef = collection(db, `artifacts/${appId}/public/data/lodge_members`);
-            
-            onSnapshot(rosterColRef, (snapshot) => {
-                const rosterTableBody = document.getElementById('roster-table-body');
-                const emptyMsg = document.getElementById('empty-roster-msg');
-                rosterTableBody.innerHTML = '';
-                allMembersData = [];
-
-                snapshot.forEach(doc => {
-                    allMembersData.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Update Dashboard immediately
-                updateBalanceDashboard();
-
-                if (allMembersData.length === 0) {
-                    emptyMsg.classList.remove('hidden');
-                    rosterTableBody.innerHTML = ''; // Ensure no "Loading" message remains
-                    return;
-                } else {
-                    emptyMsg.classList.add('hidden');
-                }
-
-                // Sort by display name
-                allMembersData.sort((a, b) => a.displayName.localeCompare(b.displayName));
-                
-                allMembersData.forEach(member => {
-                    const lastDate = member.lastPaymentDate?.toDate ? member.lastPaymentDate.toDate().toLocaleDateString() : 'N/A';
-                    const ytd = member.totalPaidYTD || 0;
-                    
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-gray-50';
-                    row.innerHTML = `
-                        <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${member.displayName}</td>
-                        <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-right text-green-600">$${ytd.toFixed(2)}</td>
-                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-600 text-right hidden md:table-cell">${lastDate}</td>
-                        <td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button data-member-id="${member.id}" data-member-name="${member.displayName}" data-ytd="${ytd}" data-last-pay="${lastDate}" class="edit-btn text-indigo-600 hover:text-indigo-900 font-semibold py-1 px-2 rounded-lg border border-indigo-200">
-                                Edit/Pay
-                            </button>
-                        </td>
-                    `;
-                    rosterTableBody.appendChild(row);
-                });
-            });
-        }
-
-        // --- Roster Table Events (Open Modal) ---
-        document.getElementById('roster-table-body').addEventListener('click', (e) => {
-            if (e.target.classList.contains('edit-btn')) {
-                const btn = e.target;
-                openEditModal(btn.dataset.memberId, btn.dataset.memberName, btn.dataset.ytd, btn.dataset.lastPay);
-            }
-        });
-
-        document.getElementById('add-member-btn').addEventListener('click', () => {
-            const newMemberId = 'new-' + Math.random().toString(36).substring(2, 11);
-            openEditModal(newMemberId, '', '0.00', 'N/A');
-        });
-        
-        // --- MODAL Logic (Roster) ---
-        const modal = document.getElementById('edit-modal');
-        document.getElementById('close-modal-btn').addEventListener('click', () => modal.classList.add('hidden'));
-        modal.addEventListener('click', (e) => { if (e.target.id === 'edit-modal') modal.classList.add('hidden'); });
-
-        function openEditModal(memberId, displayName, ytd, lastPay) {
-            document.getElementById('modal-message').textContent = '';
-            document.getElementById('modal-member-user-id').value = memberId;
-            document.getElementById('modal-display-name').value = displayName;
-            document.getElementById('modal-payment-amount').value = '';
-            
-            document.getElementById('modal-ytd-amount').textContent = `$${parseFloat(ytd).toFixed(2)}`;
-            document.getElementById('modal-last-payment-date').textContent = lastPay;
-            
-            modal.classList.remove('hidden');
-        }
-
-        // --- Save Name/Update Profile Handler ---
-        document.getElementById('manage-member-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const memberId = document.getElementById('modal-member-user-id').value;
-            const newName = document.getElementById('modal-display-name').value.trim();
-            const messageEl = document.getElementById('modal-message');
-
-            if (!newName) {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'Display name cannot be empty.';
-                return;
-            }
-            
-            // Check if Firebase is configured
-            if (!db || firebaseConfig.apiKey === "DUMMY_API_KEY") {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'ERROR: Database not connected. Update Firebase API Key to save data.';
+            if (!existing.empty) {
+                showModal("Error", `A member named "${name}" already exists.`, () => {});
                 return;
             }
 
-
-            messageEl.className = 'mt-2 text-center text-sm font-medium text-blue-600';
-            messageEl.textContent = 'Saving name...';
-
-            try {
-                const memberRef = doc(db, `artifacts/${appId}/public/data/lodge_members`, memberId);
-                
-                await setDoc(memberRef, {
-                    userId: memberId,
-                    displayName: newName,
-                    // If member is new, initialize YTD/LastPayment to null/0. Merging handles existing data.
-                    totalPaidYTD: 0,
-                    lastPaymentDate: null,
-                }, { merge: true });
-
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
-                messageEl.textContent = `Profile for ${newName} saved successfully!`;
-                
-                if (memberId.startsWith('new-')) {
-                     setTimeout(() => modal.classList.add('hidden'), 1500);
-                }
-
-            } catch (error) {
-                console.error("Error saving member profile:", error);
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = `Error saving profile: ${error.message}`;
-            }
-        });
-
-        // --- Record Payment Handler ---
-        document.getElementById('record-payment-btn').addEventListener('click', async () => {
-            const memberId = document.getElementById('modal-member-user-id').value;
-            const amountInput = document.getElementById('modal-payment-amount');
-            const messageEl = document.getElementById('modal-message');
-            const amount = parseFloat(amountInput.value);
-
-            if (isNaN(amount) || amount <= 0) {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'Please enter a valid amount greater than zero.';
-                return;
-            }
-            
-            // Check if Firebase is configured
-            if (!db || firebaseConfig.apiKey === "DUMMY_API_KEY") {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'ERROR: Database not connected. Update Firebase API Key to record payments.';
-                return;
-            }
-
-            messageEl.className = 'mt-2 text-center text-sm font-medium text-blue-600';
-            messageEl.textContent = `Recording $${amount.toFixed(2)} payment...`;
-
-            try {
-                // 1. Record the Payment to the Member's Private Collection
-                const paymentsColRef = collection(db, `artifacts/${appId}/users/${memberId}/dues_payments`);
-                await addDoc(paymentsColRef, {
-                    amount: amount,
-                    date: serverTimestamp(),
-                    year: new Date().getFullYear(),
-                    recordedBy: currentUserId,
-                    status: 'Completed (Admin Recorded)'
-                });
-
-                // 2. Recalculate and update the public roster summary
-                await updateMemberSummary(memberId);
-
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
-                messageEl.textContent = `Payment of $${amount.toFixed(2)} recorded successfully!`;
-                amountInput.value = '';
-
-            } catch (error) {
-                console.error("Error recording payment:", error);
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = `Recording Failed: ${error.message}`;
-            }
-        });
-        
-        // --- Helper: Update Member Summary (Calculates New YTD) ---
-        async function updateMemberSummary(memberId) {
-            const memberRef = doc(db, `artifacts/${appId}/public/data/lodge_members`, memberId);
-            const paymentsColRef = collection(db, `artifacts/${appId}/users/${memberId}/dues_payments`);
-            const paymentSnapshot = await getDocs(paymentsColRef);
-            
-            let totalPaidYTD = 0;
-            let latestDate = null;
-            
-            paymentSnapshot.forEach(doc => {
-                const data = doc.data();
-                totalPaidYTD += data.amount;
-                if (data.date && data.date.toDate) {
-                    if (!latestDate || data.date.toDate() > latestDate) {
-                        latestDate = data.date.toDate();
-                    }
-                }
+            await addDoc(membersRef, {
+                name: name,
+                annualDues: annualDues,
+                paidThisYear: 0,
+                joinedDate: serverTimestamp()
             });
-
-            const updateData = {
-                totalPaidYTD: totalPaidYTD,
-                // We use serverTimestamp() here to ensure the latest date is captured correctly by Firestore rules
-                lastPaymentDate: latestDate ? serverTimestamp() : null,
-            };
-            
-            await setDoc(memberRef, updateData, { merge: true });
-
-            // Update modal display immediately
-            document.getElementById('modal-ytd-amount').textContent = `$${totalPaidYTD.toFixed(2)}`;
-            document.getElementById('modal-last-payment-date').textContent = latestDate ? latestDate.toLocaleDateString() : 'N/A';
+            this.reset();
+            console.log("Member added successfully.");
+        } catch (e) {
+            console.error("Error adding member:", e);
+            showModal("Error", "Could not add member. Check console for details.", () => {});
         }
+    });
 
 
-        // --- 2. EXPENSES LOG LISTENERS ---
-        
-        function setupExpenseListener() {
-            if (!db) return;
+    // --- UI/TAB LOGIC ---
+    document.getElementById('tab-controls').addEventListener('click', function(e) {
+        const target = e.target.closest('.tab-button');
+        if (!target) return;
 
-            const expenseColRef = collection(db, `artifacts/${appId}/public/data/lodge_expenses`);
-            
-            onSnapshot(expenseColRef, (snapshot) => {
-                const expenseListEl = document.getElementById('expense-list');
-                expenseListEl.innerHTML = '';
-                allExpensesData = [];
+        const tabName = target.dataset.tab;
 
-                snapshot.forEach(doc => {
-                    allExpensesData.push({ id: doc.id, ...doc.data() });
-                });
+        // Update button active state
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        target.classList.add('active');
 
-                // Update Dashboard immediately
-                updateBalanceDashboard();
+        // Show/Hide tab content
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+        document.getElementById(tabName + '-tab').classList.remove('hidden');
+    });
 
-                if (allExpensesData.length === 0) {
-                    expenseListEl.innerHTML = `<li class="text-center text-gray-500 py-6 border border-dashed rounded-lg">No expenses logged yet.</li>`;
-                    return;
-                }
-
-                // Sort by date descending
-                allExpensesData.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
-                
-                allExpensesData.forEach(expense => {
-                    const date = expense.timestamp?.toDate ? expense.timestamp.toDate().toLocaleDateString() : 'Unknown Date';
-                    
-                    const listItem = document.createElement('li');
-                    listItem.className = 'card bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm';
-                    listItem.innerHTML = `
-                        <div class="flex justify-between items-center border-b pb-2 mb-2">
-                            <p class="text-lg font-bold text-gray-800">${expense.title}</p>
-                            <p class="text-xl font-extrabold text-red-600">-$${expense.amount.toFixed(2)}</p>
-                        </div>
-                        <div class="text-sm text-gray-600 grid grid-cols-2 gap-2">
-                            <p><span class="font-medium">Category:</span> ${expense.category}</p>
-                            <p class="text-right"><span class="font-medium">Date Logged:</span> ${date}</p>
-                            <p class="col-span-2"><span class="font-medium">Description:</span> ${expense.description || 'N/A'}</p>
-                            <p class="col-span-2 text-xs truncate">
-                                <span class="font-medium text-gray-700">Receipt Ref:</span> ${expense.receiptMetadata || 'None'}
-                            </p>
-                        </div>
-                    `;
-                    expenseListEl.appendChild(listItem);
-                });
-            });
-        }
-
-        // --- Expense Modal Logic ---
-        const expenseModal = document.getElementById('expense-modal');
-        document.getElementById('add-expense-btn').addEventListener('click', () => {
-            document.getElementById('expense-form').reset();
-            document.getElementById('expense-modal-message').textContent = '';
-            expenseModal.classList.remove('hidden');
-        });
-        document.getElementById('close-expense-modal-btn').addEventListener('click', () => expenseModal.classList.add('hidden'));
-        expenseModal.addEventListener('click', (e) => { if (e.target.id === 'expense-modal') expenseModal.classList.add('hidden'); });
-
-        // --- Log Expense Handler ---
-        document.getElementById('expense-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const title = document.getElementById('expense-title').value.trim();
-            const amount = parseFloat(document.getElementById('expense-amount').value);
-            const category = document.getElementById('expense-category').value;
-            const description = document.getElementById('expense-description').value.trim();
-            const receiptMetadata = document.getElementById('expense-receipt-meta').value.trim();
-            const messageEl = document.getElementById('expense-modal-message');
-
-            if (!title || isNaN(amount) || amount <= 0) {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'Please fill out the title and a valid amount.';
-                return;
-            }
-
-            // Check if Firebase is configured
-            if (!db || firebaseConfig.apiKey === "DUMMY_API_KEY") {
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = 'ERROR: Database not connected. Update Firebase API Key to log expenses.';
-                return;
-            }
-
-            messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
-            messageEl.textContent = 'Logging expense...';
-
-            try {
-                const expenseColRef = collection(db, `artifacts/${appId}/public/data/lodge_expenses`);
-                await addDoc(expenseColRef, {
-                    title: title,
-                    amount: amount,
-                    category: category,
-                    description: description,
-                    receiptMetadata: receiptMetadata,
-                    recordedBy: currentUserId,
-                    timestamp: serverTimestamp()
-                });
-
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-green-600';
-                messageEl.textContent = 'Expense logged successfully!';
-                
-                document.getElementById('expense-form').reset();
-                setTimeout(() => expenseModal.classList.add('hidden'), 1500);
-
-            } catch (error) {
-                console.error("Error logging expense:", error);
-                messageEl.className = 'mt-2 text-center text-sm font-medium text-red-600';
-                messageEl.textContent = `Logging Failed: ${error.message}`;
-            }
-        });
-    </script>
+</script>
 </body>
 </html>
 
