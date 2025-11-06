@@ -22,7 +22,6 @@
             border-bottom: 3px solid transparent;
             font-weight: 600;
             transition: all 0.2s;
-            /* Ensure buttons are visible on mobile */
             flex-grow: 1;
             text-align: center;
         }
@@ -56,8 +55,8 @@
 <body class="min-h-screen">
 
     <div class="bg-white shadow-md p-4 sticky top-0 z-10">
-        <div class="flex justify-between items-center container mx-auto">
-            <h1 class="text-xl font-bold text-gray-800">Lodge Financial Admin</h1>
+        <div class="flex flex-col sm:flex-row justify-between items-center container mx-auto">
+            <h1 class="text-xl font-bold text-gray-800 mb-2 sm:mb-0">Lodge Financial Admin</h1>
             <span id="auth-status" class="text-sm text-gray-500">Status: Connecting...</span>
         </div>
     </div>
@@ -73,16 +72,22 @@
 
     <main class="container mx-auto mt-4">
         <div id="app-status-message">
-            <!-- This is where the fatal error warning will be inserted if the config is dummy -->
+            <!-- This is where the fatal error warning will be inserted -->
         </div>
 
         <!-- Tab Content Containers -->
         <div id="dashboard-tab" class="tab-content">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 
                 <!-- Financial Summary Card -->
-                <div class="card p-4 col-span-1 md:col-span-2">
-                    <h2 class="text-lg font-semibold mb-3 border-b pb-2">Financial Summary</h2>
+                <div class="card p-4 col-span-1 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-3 border-b pb-2">
+                        <h2 class="text-lg font-semibold">Financial Summary</h2>
+                        <button id="print-summary-btn" class="py-1 px-3 text-sm rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50" disabled>
+                            Connecting...
+                        </button>
+                    </div>
+
                     <div class="space-y-3">
                         <div class="flex justify-between items-center text-gray-700">
                             <span>Total Dues Collected:</span>
@@ -105,11 +110,11 @@
                     <form id="expense-form" class="space-y-3">
                         <div>
                             <label for="expense-amount" class="block text-sm font-medium text-gray-700">Amount ($)</label>
-                            <input type="number" step="0.01" id="expense-amount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" required>
+                            <input type="number" step="0.01" id="expense-amount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-red-500 focus:border-red-500" required>
                         </div>
                         <div>
                             <label for="expense-description" class="block text-sm font-medium text-gray-700">Description</label>
-                            <input type="text" id="expense-description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" required>
+                            <input type="text" id="expense-description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-red-500 focus:border-red-500" required>
                         </div>
                         <button type="submit" id="record-expense-btn" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out disabled:opacity-50" disabled>
                             Connecting...
@@ -118,7 +123,7 @@
                 </div>
             </div>
 
-            <!-- Recent Activity Table (Placeholder) -->
+            <!-- Recent Activity Table -->
             <div class="card p-4 mt-6">
                 <h2 class="text-lg font-semibold mb-3 border-b pb-2">Recent Expenses</h2>
                 <div class="overflow-x-auto">
@@ -212,7 +217,7 @@
     </div>
 
 
-<!-- FIX: Simple, Non-Module Script for Tab Switching with Persistence -->
+<!-- Simple, Non-Module Script for Tab Switching with Persistence -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const tabControls = document.getElementById('tab-controls');
@@ -258,36 +263,27 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    // NOTE: We now import getFirestore with the specific database name option
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- GLOBAL VARIABLES & CONFIG ---
+    // Enable Firestore debug logging
+    setLogLevel('Debug');
+
+    // --- GLOBAL VARIABLES & CONFIG (Using Canvas Environment Vars) ---
     let app, db, auth, userId = null;
     let isAuthReady = false;
 
-    // Static App ID for the public collection path
-    const appId = 'lodge-admin-tool'; 
-
-    // 🚨🚨 CRITICAL CONFIGURATION: PROJECT ID & API KEY CHECK 🚨🚨
-    const firebaseConfig = {
-        // Web API Key (Must be correct for all services to work)
-        apiKey: "AIzaSyBAYN5FX3snnSLDjcxnjT1PNC33Qu5TIWo", 
-        // Project ID (This is the most likely error source - ensure this matches your project's ID exactly)
-        projectId: "hezekiah-lodge-admin", 
-        // Auth Domain is usually derived from projectId, but we'll include it for completeness
-        authDomain: "hezekiah-lodge-admin.firebaseapp.com",
-        // The rest are often optional for basic setup but good to include
-        storageBucket: "hezekiah-lodge-admin.appspot.com",
-        messagingSenderId: "599617453177",
-        appId: "1:599617453177:web:a1b2c3d4e5f6g7h8"
-    };
+    // Use environment variables for Firebase configuration
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-lodge-admin-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     
     // UI Elements
     const authStatusEl = document.getElementById('auth-status');
     const recordExpenseBtn = document.getElementById('record-expense-btn');
     const addMemberBtn = document.getElementById('add-member-btn');
     const appStatusMessage = document.getElementById('app-status-message');
+    const printSummaryBtn = document.getElementById('print-summary-btn');
 
     // --- UTILITIES ---
 
@@ -297,13 +293,17 @@
             recordExpenseBtn.disabled = false;
             recordExpenseBtn.textContent = 'Record Expense';
             addMemberBtn.disabled = false;
-            addMemberBtn.textContent = 'Add Member'; // Ensure this is the correct text when active
+            addMemberBtn.textContent = 'Add Member';
+            printSummaryBtn.disabled = false;
+            printSummaryBtn.textContent = 'Print Accounting Summary';
         } else {
             // Disable forms and set loading text
             recordExpenseBtn.disabled = true;
             recordExpenseBtn.textContent = text;
             addMemberBtn.disabled = true;
             addMemberBtn.textContent = text;
+            printSummaryBtn.disabled = true;
+            printSummaryBtn.textContent = text;
         }
     }
 
@@ -336,18 +336,12 @@
     function showFatalError(message, authError = null) {
         let rulesTip = '';
         if (authError) {
-            rulesTip = `
-                <ul class="list-disc list-inside mt-3 text-left mx-auto max-w-xs">
-                    <li>**Action 1: Go to Cloud Firestore and click "Create Database".**</li>
-                    <li>**Action 2: Verify Rules** are set to: <code>allow read, write: if true;</code> (for now)</li>
-                </ul>
-                <p class="mt-2 text-xs font-semibold">Auth Code: ${authError.code}</p>
-            `;
+            rulesTip = `<p class="mt-2 text-xs font-semibold">Auth Code: ${authError.code || 'N/A'}</p>`;
         }
 
         appStatusMessage.innerHTML = `
             <div class="fatal-error-box">
-                <p class="text-xl font-bold mb-2">FATAL ERROR: Authentication failed.</p>
+                <p class="text-xl font-bold mb-2">FATAL ERROR: Initialization failed.</p>
                 <p class="text-sm">${message}</p>
                 ${rulesTip}
             </div>
@@ -366,16 +360,14 @@
 
     // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
     
-    // Check if configuration is dummy (not strictly needed, but good practice)
-    if (firebaseConfig.apiKey.includes("YOUR_ACTUAL") || firebaseConfig.apiKey.length < 10) {
-        showFatalError("The FIREBASE API KEY is missing or invalid.");
+    if (!firebaseConfig) {
+        showFatalError("Firebase configuration is missing. The environment variable __firebase_config was not found or is invalid.");
         return; // Stop execution
     }
 
     try {
         app = initializeApp(firebaseConfig);
-        // Explicitly connect to the default database instance
-        db = getFirestore(app, 'default'); 
+        db = getFirestore(app); 
         auth = getAuth(app);
         console.log("Firebase App Initialized.");
         setFormStatus(false, "Authenticating..."); // Set initial status
@@ -388,11 +380,16 @@
     async function authenticate() {
         try {
             authStatusEl.textContent = "Status: Authenticating...";
-            await signInAnonymously(auth);
+            await setPersistence(auth, browserSessionPersistence);
+            
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
             // onAuthStateChanged will handle the rest
         } catch (error) {
-            // This is the error handler for signInAnonymously failure
-            showFatalError(`Authentication failed, likely due to a Project ID mismatch or missing database.`, error);
+            showFatalError(`Authentication failed. Check your Firebase Project ID and Firestore Security Rules.`, error);
             setFormStatus(false, "Auth Failed");
         }
     }
@@ -401,18 +398,17 @@
         if (user) {
             userId = user.uid;
             isAuthReady = true;
-            authStatusEl.textContent = `Status: Logged in (User ID: ${userId.substring(0, 8)}...)`;
-            setFormStatus(true, "Add Member"); // Forms are now active
-            console.log("User signed in anonymously. UID:", userId);
+            // Use the first 8 characters of the userId for display
+            authStatusEl.textContent = `Status: Logged in (User ID: ${userId})`; 
+            setFormStatus(true, "Ready"); // Forms are now active
+            console.log("User signed in. UID:", userId);
             
-            // Clear the fatal error message if present after successful auth
             document.getElementById('app-status-message').innerHTML = ''; 
             
             // Start listening for data now that we have a user
             setupAllListeners();
 
         } else {
-            // User is signed out, or failed to sign in
             userId = null;
             isAuthReady = false;
             authStatusEl.textContent = "Status: Signed out.";
@@ -425,12 +421,19 @@
 
     // --- FIREBASE PATHS ---
 
-    // Public collection path: /artifacts/{appId}/public/data/
+    // Public collection path: /artifacts/{appId}/public/data/{collectionName}
     function getPublicCollectionRef(collectionName) {
+        // Data is public/shared, so it goes under the public path
         return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
     }
     
     // --- DATA LISTENERS AND RENDERING ---
+
+    let totalDues = 0;
+    let totalExpenses = 0;
+    // Store data globally to be available for the print function
+    let memberRoster = [];
+    let expenseHistory = [];
 
     function setupAllListeners() {
         if (!isAuthReady) return;
@@ -438,39 +441,40 @@
         setupFinancialSummaryListener();
         setupRosterListener();
         setupExpenseHistoryListener();
+        attachPrintButtonListener(); // Attach print button handler
     }
 
     // 1. FINANCIAL SUMMARY (Dashboard & Totals)
-
-    let totalDues = 0;
-    let totalExpenses = 0;
-
     function setupFinancialSummaryListener() {
-        // Listen for all dues
+        // Listen for all dues (Members)
         const rosterRef = getPublicCollectionRef('members');
         onSnapshot(rosterRef, (snapshot) => {
             totalDues = 0;
+            memberRoster = [];
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
                 if (data.paidThisYear) {
                     totalDues += data.paidThisYear;
                 }
+                memberRoster.push({...data, id: doc.id});
             });
             renderFinancialSummary();
+            renderRoster(memberRoster); // Rerender roster on update
         }, (error) => console.error("Dues Listener Error:", error));
 
         // Listen for all expenses
         const expensesRef = getPublicCollectionRef('expenses');
         onSnapshot(expensesRef, (snapshot) => {
             totalExpenses = 0;
-            const expensesData = [];
+            expenseHistory = [];
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
                 totalExpenses += data.amount;
-                expensesData.push({...data, id: doc.id});
+                expenseHistory.push({...data, id: doc.id});
             });
             renderFinancialSummary();
-            renderRecentExpenses(expensesData);
+            renderRecentExpenses(expenseHistory);
+            renderFullExpenseHistory(expenseHistory); // Rerender full list on update
         }, (error) => console.error("Expenses Listener Error:", error));
     }
 
@@ -526,14 +530,7 @@
     // 2. ROSTER (DUES) MANAGEMENT
 
     function setupRosterListener() {
-        const rosterRef = getPublicCollectionRef('members');
-        onSnapshot(rosterRef, (snapshot) => {
-            const rosterData = [];
-            snapshot.docs.forEach(doc => {
-                rosterData.push({...doc.data(), id: doc.id});
-            });
-            renderRoster(rosterData);
-        }, (error) => console.error("Roster Listener Error:", error));
+        // Listener is integrated into setupFinancialSummaryListener to update totalDues and memberRoster
     }
 
     function renderRoster(rosterData) {
@@ -604,35 +601,25 @@
     }
     
     // 3. EXPENSE HISTORY (Full List)
-
     function setupExpenseHistoryListener() {
-        const expensesRef = getPublicCollectionRef('expenses');
-        // Fetch all expenses, sorted by timestamp
-        const q = query(expensesRef);
-
-        onSnapshot(q, (snapshot) => {
-            const expensesData = [];
-            snapshot.docs.forEach(doc => {
-                expensesData.push({...doc.data(), id: doc.id});
-            });
-            // Sort in-memory (descending) as Firestore ordering requires indexes we avoid
-            expensesData.sort((a, b) => 
-                (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)
-            );
-            renderFullExpenseHistory(expensesData);
-        }, (error) => console.error("Full Expenses Listener Error:", error));
+        // Listener is integrated into setupFinancialSummaryListener to update totalExpenses and expenseHistory
     }
 
     function renderFullExpenseHistory(expensesData) {
         const body = document.getElementById('full-expenses-body');
         body.innerHTML = '';
 
-        if (expensesData.length === 0) {
+        // Sort in-memory (descending)
+        const sortedExpenses = expensesData.sort((a, b) => 
+            (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)
+        );
+
+        if (sortedExpenses.length === 0) {
             body.innerHTML = `<tr><td colspan="4" class="px-3 py-2 text-center text-sm text-gray-500">No expenses recorded yet.</td></tr>`;
             return;
         }
 
-        expensesData.forEach(expense => {
+        sortedExpenses.forEach(expense => {
             const date = expense.timestamp ? new Date(expense.timestamp.toMillis()).toLocaleDateString() : 'N/A';
             const row = `
                 <tr>
@@ -680,6 +667,154 @@
             }
         );
     }
+
+
+    // --- PRINTABLE SUMMARY FUNCTIONALITY ---
+
+    function generatePrintSummary() {
+        if (!isAuthReady) {
+            showModal("Error", "Please wait for the application to fully connect before generating a report.", () => {});
+            return;
+        }
+
+        const netBalance = totalDues - totalExpenses;
+        
+        // --- 1. Compile Roster Data (from live data) ---
+        const rosterRows = memberRoster.map(m => {
+            const statusText = m.paidThisYear >= m.annualDues ? 'PAID' : 'DUE';
+            return `
+                <tr>
+                    <td class="p-2">${m.name}</td>
+                    <td class="p-2 text-center">${formatCurrency(m.annualDues)}</td>
+                    <td class="p-2 text-center text-blue-600">${formatCurrency(m.paidThisYear || 0)}</td>
+                    <td class="p-2 text-center ${m.paidThisYear >= m.annualDues ? 'text-green-600 font-bold' : 'text-red-500'}">${statusText}</td>
+                </tr>
+            `;
+        }).join('');
+
+
+        // --- 2. Compile Expense Data (from live data, sorted by date DESC) ---
+        const sortedExpenses = [...expenseHistory].sort((a, b) => 
+            (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0)
+        );
+
+        const expenseRows = sortedExpenses.map(e => {
+            const date = e.timestamp ? new Date(e.timestamp.toMillis()).toLocaleDateString() : 'N/A';
+            return `
+                <tr>
+                    <td class="p-2 w-1/4">${date}</td>
+                    <td class="p-2 w-1/2">${e.description}</td>
+                    <td class="p-2 text-right text-red-500 font-medium">-${formatCurrency(e.amount)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 3. Build the HTML Content
+        const summaryHTML = `
+            <div class="p-8 bg-white min-h-screen">
+                <h1 class="text-3xl font-bold mb-6 border-b-4 border-indigo-600 pb-2">Lodge Financial Report - ${new Date().toLocaleDateString()}</h1>
+                <p class="text-sm text-gray-500 mb-6">Generated by User ID: ${userId}</p>
+
+                <!-- Summary Section -->
+                <div class="mb-8 p-4 border rounded-lg bg-gray-50 print-bg-white">
+                    <h2 class="text-xl font-semibold mb-3">Overall Financial Status</h2>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="p-3 border rounded bg-white">
+                            <p class="text-sm text-gray-500">Total Dues Collected</p>
+                            <p class="text-2xl font-bold text-blue-600">${formatCurrency(totalDues)}</p>
+                        </div>
+                        <div class="p-3 border rounded bg-white">
+                            <p class="text-sm text-gray-500">Total Expenses</p>
+                            <p class="text-2xl font-bold text-red-600">${formatCurrency(totalExpenses)}</p>
+                        </div>
+                        <div class="p-3 border rounded bg-white">
+                            <p class="text-sm text-gray-500">Net Balance</p>
+                            <p class="text-2xl font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(netBalance)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Member Dues Status -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-semibold mb-3 border-b pb-1">Member Dues Status</h2>
+                    <table class="min-w-full border divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-2 text-left">Member Name</th>
+                                <th class="p-2 text-center">Annual Dues</th>
+                                <th class="p-2 text-center">Paid YTD</th>
+                                <th class="p-2 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${rosterRows}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Expense History -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 border-b pb-1">Expense History</h2>
+                    <table class="min-w-full border divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="p-2 text-left w-1/4">Date</th>
+                                <th class="p-2 text-left w-1/2">Description</th>
+                                <th class="p-2 text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${expenseRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // 4. Open in New Window and Print
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Lodge Financial Summary</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                    body { margin: 0; background-color: #ffffff !important; font-family: 'Inter', sans-serif; }
+                    
+                    /* Ensures tables and borders print cleanly */
+                    table { border-collapse: collapse; }
+                    .print-bg-white { background-color: #ffffff !important; }
+
+                    @media print {
+                        /* Important: Force background colors for headers/cards if needed */
+                        .bg-gray-50 { -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #f9fafb !important; }
+                        .text-red-600 { color: #dc2626 !important; }
+                        .text-green-600 { color: #059669 !important; }
+                        .text-blue-600 { color: #2563eb !important; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${summaryHTML}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+
+        // Wait for content to load, then trigger print dialog
+        printWindow.onload = function() {
+            printWindow.print();
+        };
+    }
+
+    function attachPrintButtonListener() {
+        const printBtn = document.getElementById('print-summary-btn');
+        if (printBtn) {
+            printBtn.addEventListener('click', generatePrintSummary);
+        }
+    }
+
 
     // --- FORM SUBMISSIONS ---
 
